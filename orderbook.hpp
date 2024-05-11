@@ -24,7 +24,7 @@ public:
     absl::flat_hash_map<std::pair<int, int>, int64_t> contribution_volumes_;
 
 public:
-    std::optional<SparseMatrixElement> get_contribution_item(int from, int to);
+    SparseMatrixElement get_contribution_item(int from, int to);
 };
 
 

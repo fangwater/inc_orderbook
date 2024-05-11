@@ -15,13 +15,12 @@ void PriceLeader::remove(IntrusiveOrder &order) {
         throw std::runtime_error("order pool is not bind");
     }
 }
-std::optional<SparseMatrixElement> OrgContribution::get_contribution_item(int from, int to) {
-    auto iter = contribution_volumes_.find({from, to});
-    if (iter != contribution_volumes_.end()) {
-        return iter;
-    } else {
-        return std::nullopt;
-    }
+
+SparseMatrixElement OrgContribution::get_contribution_item(int from, int to) {
+    // 尝试插入一个元素，其中键为(from, to)对，值为0
+    auto [iter, inserted] = contribution_volumes_.try_emplace({from, to}, 0);
+    // try_emplace返回的iter是指向当前元素的迭代器，inserted表示是否插入了新元素
+    return iter;// 直接返回迭代器，因为absl::flat_hash_map的迭代器即使元素存在也是有效的
 }
 
 PriceLeader::PriceLeader(int orgs) {
@@ -226,13 +225,16 @@ void OrderBook::process_order_add(TickInfo *tick) {
             std::pair<int64_t, IntrusivePriceLeaderList::iterator> p(price_leader.price, last_elem_iter);
             DLOG(INFO) << fmt::format("OrderNo: {}",order.orderNo);
             buy_level.emplace(std::move(p));
+        } else {
+            auto &price_leader = price_iter->second;
+            price_leader->push_back(order);
             //处理行情的修正
             /**
              * @brief 
              * 1、公有行情触发增量 增加总的vol_sum
              * 2、更新对私有行情的贡献量
              */
-            price_leader.executable_vol += order.volume;
+            price_leader->executable_vol += order.volume;
             for (auto i = 0; i < org_size; i++) {
                 //若机构间没有授信，则直接跳过
                 int64_t c_1 = bi_credit->get<'B'>(order.org, i);
@@ -241,12 +243,11 @@ void OrderBook::process_order_add(TickInfo *tick) {
                 int64_t c_2 = bi_credit->get<'S'>(i, order.org);
                 if (!c_2)
                     continue;
-                //若机构间有授信，则查看之前的情况
-                int64_t vol_min = 
+                //若机构间有授信，则查看之前，机构是否有贡献量
+                auto item = price_leader->org_contribution->get_contribution_item(order.org, i);
+                int64_t prev_contr_vol = item->second;
+                //
             }
-        } else {
-            auto &price_leader = price_iter->second;
-            price_leader->push_back(order);
         }
     } else {
         auto price_iter = sell_level.find(order.price);
