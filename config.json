@@ -1,0 +1,10 @@
+{
+    "contract":["A","B","C","D","E","F"],
+    "swap_pair":["A-B","B-C","C-D","E-F"],
+    "org_size":6,
+    "partition":[
+        ["A","B"],
+        ["C","D"],
+        ["E","F"]
+    ]
+}
